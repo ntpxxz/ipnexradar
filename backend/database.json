@@ -1,0 +1,71 @@
+{
+    "devices": [
+        {
+            "id": 1,
+            "mac_address": "00:11:22:33:44:55",
+            "last_known_ip": "192.168.1.100",
+            "last_known_hostname": "Admin-PC",
+            "category": "PC",
+            "is_authorized": "TRUE",
+            "created_at": "2026-05-01 14:40:48",
+            "updated_at": "2026-05-01 14:40:48"
+        },
+        {
+            "id": 2,
+            "mac_address": "aa:bb:cc:dd:ee:ff",
+            "last_known_ip": "192.168.1.105",
+            "last_known_hostname": "",
+            "category": "Unknown",
+            "is_authorized": "FALSE",
+            "created_at": "2026-05-01 14:55:05",
+            "updated_at": "2026-05-01 14:55:05"
+        }
+    ],
+    "scan_logs": [
+        {
+            "id": "LOG-1777621248-dd:ee",
+            "device_id": "",
+            "ip_address": "192.168.1.100",
+            "hostname": "",
+            "status_tag": "SPOOFING_ATTEMPT",
+            "scan_time": "2026-05-01 14:40:46",
+            "is_alert_sent": "FALSE"
+        },
+        {
+            "id": "LOG-1777622105-44:55",
+            "device_id": 1,
+            "ip_address": "192.168.1.100",
+            "hostname": "",
+            "status_tag": "NORMAL",
+            "scan_time": "2026-05-01 14:55:05",
+            "is_alert_sent": "FALSE"
+        },
+        {
+            "id": "LOG-1777622105-ee:ff",
+            "device_id": "",
+            "ip_address": "192.168.1.105",
+            "hostname": "",
+            "status_tag": "NEW_DEVICE",
+            "scan_time": "2026-05-01 14:55:05",
+            "is_alert_sent": "FALSE"
+        },
+        {
+            "id": "LOG-1777622105-ee:ff",
+            "device_id": 2,
+            "ip_address": "192.168.1.110",
+            "hostname": "",
+            "status_tag": "IP_MOVED",
+            "scan_time": "2026-05-01 14:55:05",
+            "is_alert_sent": "FALSE"
+        },
+        {
+            "id": "LOG-1777622105-55:44",
+            "device_id": "",
+            "ip_address": "192.168.1.100",
+            "hostname": "",
+            "status_tag": "SPOOFING_ATTEMPT",
+            "scan_time": "2026-05-01 14:55:05",
+            "is_alert_sent": "FALSE"
+        }
+    ]
+}

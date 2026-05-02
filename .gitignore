@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Database (Exclude local SQLite DB)
+backend/ipnex.db
+backend/ipnex.db-journal
+
+# Node
+node_modules/
+.next/
+out/
+build/
+.next-env.d.ts
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: ipnex_backend
+    # network_mode: "host" is required so Scapy can access the host's physical network to send ARP packets
+    network_mode: "host"
+    privileged: true
+    environment:
+      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID}
+      - LINE_NOTIFY_TOKEN=${LINE_NOTIFY_TOKEN}
+    volumes:
+      - ./backend/service_account.json:/app/service_account.json
+      - ./backend/.env:/app/.env
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: ipnex_frontend
+    ports:
+      - "3000:3000"
+    restart: always
