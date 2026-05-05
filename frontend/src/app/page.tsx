@@ -9,11 +9,14 @@ interface Device {
   mac_address: string;
   ip_address: string;
   hostname: string;
+  model: string;
+  process: string;
   status: string;
   is_reserved: string | boolean | number;
   first_seen: string;
   last_seen: string;
   has_recent_ip_change: boolean;
+  remark?: string;
 }
 
 interface Log {
@@ -27,6 +30,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Search & Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,24 +50,61 @@ export default function Dashboard() {
   const [newDevice, setNewDevice] = useState({ hostname: "", ip_address: "", mac_address: "", is_reserved: false });
   const [formLoading, setFormLoading] = useState(false);
 
-  const filteredDevices = useMemo(() => {
-    return devices.filter(device => {
-      const matchesSearch = 
+  type SortField = 'hostname' | 'process' | 'model' | 'ip_address' | 'mac_address' | 'status' | 'last_seen';
+  const [sortField, setSortField] = useState<SortField>('ip_address');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  const filteredAndSortedDevices = useMemo(() => {
+    let result = devices.filter(device => {
+      const matchesSearch =
         device.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        device.process?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        device.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.ip_address?.includes(searchTerm) ||
         device.mac_address?.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesStatus = statusFilter === "all" || device.status === statusFilter;
-      
+
       return matchesSearch && matchesStatus;
     });
-  }, [devices, searchTerm, statusFilter]);
+
+    result.sort((a, b) => {
+      const aValue = a[sortField] || '';
+      const bValue = b[sortField] || '';
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [devices, searchTerm, statusFilter, sortField, sortDirection]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedDevices.length / itemsPerPage));
+  const paginatedDevices = filteredAndSortedDevices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   const exportToCSV = () => {
-    const headers = ["ID", "Hostname", "IP Address", "MAC Address", "Status", "First Seen", "Last Seen"];
-    const rows = filteredDevices.map(d => [
+    const headers = ["ID", "Control/Host", "Process", "Model", "IP Address", "MAC Address", "Status", "First Seen", "Last Seen"];
+    const rows = filteredAndSortedDevices.map(d => [
       d.device_id,
       d.hostname || "Unknown",
+      d.process || "",
+      d.model || "",
       d.ip_address,
       d.mac_address,
       d.status,
@@ -177,17 +222,26 @@ export default function Dashboard() {
           <div className="flex items-center gap-4 glass-panel px-4 py-2 rounded-full">
             <Clock className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-300">
-              Updated: {lastUpdated.toLocaleTimeString()}
+              Updated: {mounted ? lastUpdated.toLocaleTimeString() : "--:--:--"}
             </span>
-            <button 
-              onClick={() => fetchDevices()} 
+            <button
+              onClick={() => fetchDevices()}
               className="p-2 hover:bg-white/10 rounded-full transition-colors"
               title="Refresh Data"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''} text-[#00f0ff]`} />
             </button>
+            <Link href="/unused-ips">
+              <button
+                className="flex items-center gap-2 p-2 px-3 hover:bg-white/10 rounded-full transition-colors"
+                title="Find Unused IPs"
+              >
+                <Search className="w-4 h-4 text-[#00ff66]" />
+                <span className="text-sm font-medium text-[#00ff66] hidden sm:block">Free IPs</span>
+              </button>
+            </Link>
             <Link href="/history">
-              <button 
+              <button
                 className="flex items-center gap-2 p-2 px-3 hover:bg-white/10 rounded-full transition-colors"
                 title="View Audit Trail"
               >
@@ -242,14 +296,14 @@ export default function Dashboard() {
               <Activity className="w-5 h-5 text-[#00f0ff]" /> Manual Network Scan
             </h3>
             <div className="flex items-center gap-3">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={subnet}
                 onChange={(e) => setSubnet(e.target.value)}
-                placeholder="e.g. 192.168.1.0/24" 
+                placeholder="e.g. 192.168.1.0/24"
                 className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-[#00f0ff] transition-colors flex-1"
               />
-              <button 
+              <button
                 onClick={handleManualScan}
                 disabled={isScanning}
                 className={`bg-[#00f0ff] text-black px-6 py-2 rounded-lg font-semibold transition-all hover:bg-[#00c0cc] ${isScanning ? 'opacity-70 cursor-not-allowed' : ''} flex items-center gap-2`}
@@ -270,44 +324,44 @@ export default function Dashboard() {
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Plus className="w-5 h-5 text-[#00ff66]" /> Register Device
               </h3>
-              <button 
+              <button
                 onClick={() => setShowAddForm(!showAddForm)}
                 className="bg-[#00ff66]/10 text-[#00ff66] px-3 py-1 rounded-lg text-xs hover:bg-[#00ff66]/20 transition-all"
               >
                 {showAddForm ? "Close Form" : "Open Form"}
               </button>
             </div>
-            
+
             {showAddForm ? (
               <form onSubmit={handleManualAdd} className="space-y-3 animate-in fade-in duration-300">
                 <div className="grid grid-cols-2 gap-3">
-                  <input 
+                  <input
                     type="text"
                     placeholder="Hostname"
                     value={newDevice.hostname}
-                    onChange={(e) => setNewDevice({...newDevice, hostname: e.target.value})}
+                    onChange={(e) => setNewDevice({ ...newDevice, hostname: e.target.value })}
                     required
                     className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#00ff66]"
                   />
-                  <input 
+                  <input
                     type="text"
                     placeholder="IP Address"
                     value={newDevice.ip_address}
-                    onChange={(e) => setNewDevice({...newDevice, ip_address: e.target.value})}
+                    onChange={(e) => setNewDevice({ ...newDevice, ip_address: e.target.value })}
                     required
                     className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#00ff66]"
                   />
                 </div>
                 <div className="flex gap-3">
-                  <input 
+                  <input
                     type="text"
                     placeholder="MAC Address"
                     value={newDevice.mac_address}
-                    onChange={(e) => setNewDevice({...newDevice, mac_address: e.target.value})}
+                    onChange={(e) => setNewDevice({ ...newDevice, mac_address: e.target.value })}
                     required
                     className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#00ff66] flex-1"
                   />
-                  <button 
+                  <button
                     type="submit"
                     disabled={formLoading}
                     className="bg-[#00ff66] text-black px-4 rounded-lg text-xs font-bold hover:bg-[#00cc55] transition-all disabled:opacity-50"
@@ -326,7 +380,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input 
+            <input
               type="text"
               placeholder="Search by Hostname, IP or MAC..."
               value={searchTerm}
@@ -334,30 +388,30 @@ export default function Dashboard() {
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white outline-none focus:border-[#00f0ff] transition-colors"
             />
           </div>
-          
+
           <div className="flex items-center gap-2 w-full md:w-auto">
             <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
-              <button 
+              <button
                 onClick={() => setStatusFilter("all")}
                 className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === 'all' ? 'bg-[#00f0ff] text-black shadow-lg shadow-[#00f0ff]/20' : 'text-gray-400 hover:text-white'}`}
               >
                 All
               </button>
-              <button 
+              <button
                 onClick={() => setStatusFilter("online")}
                 className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === 'online' ? 'bg-[#00ff66] text-black shadow-lg shadow-[#00ff66]/20' : 'text-gray-400 hover:text-white'}`}
               >
                 Online
               </button>
-              <button 
+              <button
                 onClick={() => setStatusFilter("offline")}
                 className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === 'offline' ? 'bg-gray-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
               >
                 Offline
               </button>
             </div>
-            
-            <button 
+
+            <button
               onClick={exportToCSV}
               className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-300 hover:bg-white/10 transition-colors ml-auto md:ml-0"
             >
@@ -384,24 +438,40 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400">
-                    <th className="p-4 font-medium">Device</th>
-                    <th className="p-4 font-medium">IP Address</th>
-                    <th className="p-4 font-medium">MAC Address</th>
-                    <th className="p-4 font-medium">Status</th>
-                    <th className="p-4 font-medium">Last Seen</th>
+                  <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400 select-none">
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('hostname')}>
+                      Control {sortField === 'hostname' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('process')}>
+                      Process {sortField === 'process' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('model')}>
+                      Model {sortField === 'model' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('ip_address')}>
+                      IP Address {sortField === 'ip_address' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('mac_address')}>
+                      MAC Address {sortField === 'mac_address' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('status')}>
+                      Status {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-4 font-medium cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('last_seen')}>
+                      Last Seen {sortField === 'last_seen' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {loading && devices.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-gray-400">Loading radar data...</td>
+                      <td colSpan={7} className="p-8 text-center text-gray-400">Loading radar data...</td>
                     </tr>
-                  ) : filteredDevices.length === 0 ? (
+                  ) : paginatedDevices.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-gray-400">No devices match your search or filter.</td>
+                      <td colSpan={7} className="p-8 text-center text-gray-400">No devices match your search or filter.</td>
                     </tr>
-                  ) : filteredDevices.map((device, i) => (
+                  ) : paginatedDevices.map((device, i) => (
                     <tr key={device.device_id || i} className="hover:bg-white/5 transition-colors group">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -418,11 +488,26 @@ export default function Dashboard() {
                             </p>
                             {device.has_recent_ip_change && (
                               <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 flex items-center gap-1 w-max mt-1">
-                                <Activity className="w-2.5 h-2.5" /> Recent IP Change
+                                <Activity className="w-2.5 h-2.5" /> IP Recently Changed
+                              </span>
+                            )}
+                            {device.remark && !device.has_recent_ip_change && (
+                              <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/30 flex items-center gap-1 w-max mt-1">
+                                <Activity className="w-2.5 h-2.5" /> {device.remark}
                               </span>
                             )}
                           </div>
                         </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-sm text-gray-300">
+                          {device.process || '--'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-sm text-gray-300">
+                          {device.model || '--'}
+                        </span>
                       </td>
                       <td className="p-4">
                         <span className="font-mono text-sm text-[#00f0ff] bg-[#00f0ff]/10 px-2 py-1 rounded">
@@ -453,6 +538,31 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t border-white/10 text-sm bg-white/5">
+                <span className="text-gray-400">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedDevices.length)} of {filteredAndSortedDevices.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-3 text-gray-300">Page {currentPage} of {totalPages}</span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

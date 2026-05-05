@@ -2,8 +2,10 @@ import gspread
 from google.oauth2.service_account import Credentials
 import os
 from dotenv import load_dotenv
+from logger import get_logger
 
 load_dotenv()
+logger = get_logger(__name__)
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.json")
@@ -23,7 +25,7 @@ def get_google_sheet_client():
         client = gspread.authorize(credentials)
         return client
     except Exception as e:
-        print(f"Error connecting to Google Sheets: {e}")
+        logger.error(f"Error connecting to Google Sheets: {e}", exc_info=True)
         return None
 
 def get_database_sheets():
@@ -44,5 +46,5 @@ def get_database_sheets():
             "system_configs": spreadsheet.worksheet("system_configs")
         }
     except Exception as e:
-        print(f"Error opening worksheets: {e}")
+        logger.error(f"Error opening worksheets: {e}", exc_info=True)
         return None

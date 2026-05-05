@@ -6,3 +6,6 @@ python-dotenv
 scapy
 requests
 apscheduler
+openpyxl
+httpx
+psycopg2-binary
